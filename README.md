@@ -14,25 +14,26 @@ A small, fast, performance-oriented PHP framework with a CodeIgniter 3–style d
 1. [Requirements](#1-requirements)
 2. [Installation and web server setup](#2-installation-and-web-server-setup)
 3. [Directory structure](#3-directory-structure)
-4. [Configuration](#4-configuration)
-5. [Routing](#5-routing)
-6. [Controllers](#6-controllers)
-7. [Views](#7-views)
-8. [Models](#8-models)
-9. [Libraries](#9-libraries)
-10. [Helpers](#10-helpers)
-11. [Input](#11-input)
-12. [Output](#12-output)
-13. [Database](#13-database)
-14. [Hooks](#14-hooks)
-15. [Session library](#15-session-library)
-16. [Validation library](#16-validation-library)
-17. [Error handling and logging](#17-error-handling-and-logging)
-18. [Security notes](#18-security-notes)
-19. [Performance tips](#19-performance-tips)
-20. [Global function reference](#20-global-function-reference)
-21. [Complete example: JSON login API](#21-complete-example-json-login-api)
-22. [Common pitfalls](#22-common-pitfalls)
+4. [Request lifecycle](#4-request-lifecycle)
+5. [Configuration](#5-configuration)
+6. [Routing](#6-routing)
+7. [Controllers](#7-controllers)
+8. [Views](#8-views)
+9. [Models](#9-models)
+10. [Libraries](#10-libraries)
+11. [Helpers](#11-helpers)
+12. [Input](#12-input)
+13. [Output](#13-output)
+14. [Database](#14-database)
+15. [Hooks](#15-hooks)
+16. [Session library](#16-session-library)
+17. [Validation library](#17-validation-library)
+18. [Error handling and logging](#18-error-handling-and-logging)
+19. [Security notes](#19-security-notes)
+20. [Performance tips](#20-performance-tips)
+21. [Global function reference](#21-global-function-reference)
+22. [Complete example: JSON login API](#22-complete-example-json-login-api)
+23. [Common pitfalls](#23-common-pitfalls)
 
 ---
 
@@ -146,7 +147,30 @@ Only `index.php` (and your public assets) should be reachable from the web.
 
 ---
 
-## 4. Configuration
+## 4. Request lifecycle
+
+```
+index.php
+  └─ Framework::run()
+       1. error/exception handlers registered, output buffering started
+       2. Config, Hooks, Input, Output, Router created
+       3. hook: pre_system
+       4. Router resolves the URI → controller file, class, method, arguments  (404 if not found)
+       5. hook: pre_controller
+       6. Controller file is loaded; method/arguments are validated            (404 if invalid)
+       7. Controller is instantiated (BaseController::__construct runs autoload)
+       8. hook: post_controller_constructor
+       9. Controller method is called
+      10. hook: post_controller
+      11. Output is sent (headers + buffered body)
+      12. hook: post_system   (runs after the response is flushed when PHP-FPM is used)
+```
+
+Everything you `echo` or render with `$this->load->view()` is buffered and sent in step 11, so you can still set headers or status codes late in the request.
+
+---
+
+## 5. Configuration
 
 ### `app/config/config.php`
 
@@ -193,7 +217,7 @@ See [Database](#14-database).
 
 ---
 
-## 5. Routing
+## 6. Routing
 
 URLs map to `controller/method/arg1/arg2/...` by default:
 
@@ -238,7 +262,7 @@ If the request method has no entry (and there is no `*`), the route is skipped.
 
 ---
 
-## 6. Controllers
+## 7. Controllers
 
 Controllers live in `app/controllers/`. The file name must equal the class name (`Welcome.php` → `class Welcome`).
 
@@ -307,7 +331,7 @@ $ci->input->post('x');
 
 ---
 
-## 7. Views
+## 8. Views
 
 Views are plain PHP templates in `app/views/`.
 
@@ -352,7 +376,7 @@ $this->load->view('layout/footer');
 
 ---
 
-## 8. Models
+## 9. Models
 
 Models live in `app/models/` and extend `BaseModel`.
 
@@ -388,7 +412,7 @@ The names `load`, `input`, `output`, `config` and `db` are reserved and cannot b
 
 ---
 
-## 9. Libraries
+## 10. Libraries
 
 Put your own classes in `app/libraries/`; framework libraries live in `system/libraries/`. The application folder is searched first, so you can override a system library by using the same file name.
 
@@ -431,7 +455,7 @@ $this->mailer->send('a@b.com', 'Hi', 'Hello');
 
 ---
 
-## 10. Helpers
+## 11. Helpers
 
 Helpers are files of plain functions named `<name>_helper.php`.
 
@@ -463,7 +487,7 @@ Lookup: `app/helpers/` first, then `system/helpers/`; **both** are loaded if bot
 
 ---
 
-## 11. Input
+## 12. Input
 
 `$this->input` gives access to request data.
 
@@ -501,7 +525,7 @@ When the request has `Content-Type: application/json` and `$_POST` is empty, `$t
 
 ---
 
-## 12. Output
+## 13. Output
 
 `$this->output` controls the response.
 
@@ -520,7 +544,7 @@ For redirects use the `redirect()` helper.
 
 ---
 
-## 13. Database
+## 14. Database
 
 A thin PDO wrapper. **There is no Query Builder**: write SQL yourself.
 
@@ -663,7 +687,7 @@ Failed queries throw `DatabaseException` (a `RuntimeException`). In development 
 
 ---
 
-## 14. Hooks
+## 15. Hooks
 
 Hooks let you run code at fixed points of the request. Define them in `app/config/hooks.php` with the `$hook` array.
 
@@ -703,7 +727,7 @@ $hook['post_controller'][] = [Example_hook::class, 'add_security_headers'];
 
 ---
 
-## 15. Session library
+## 16. Session library
 
 ```php
 $this->load->library('Session');       // or $autoload['libraries'] = ['Session'];
@@ -735,7 +759,7 @@ Tip: call `close()` before slow operations (external API calls, large downloads)
 
 ---
 
-## 16. Validation library
+## 17. Validation library
 
 ```php
 $this->load->library('Validation');          // → $this->validation
@@ -795,7 +819,7 @@ Message placeholders: `{field}` (the label) and `{param}` (the text inside `[...
 
 ---
 
-## 17. Error handling and logging
+## 18. Error handling and logging
 
 - **Exceptions and PHP errors** are caught by the framework.
   - Development: the error page shows the message, file, line and stack trace (`app/views/errors/error_general.php`).
@@ -822,7 +846,7 @@ Logs go to `app/logs/log-YYYY-MM-DD.log`. A message is written only if its level
 
 ---
 
-## 18. Security notes
+## 19. Security notes
 
 What the framework does for you:
 
@@ -847,7 +871,7 @@ What you must do:
 
 ---
 
-## 19. Performance tips
+## 20. Performance tips
 
 - Enable **OPcache** in production (`opcache.enable=1`, and `opcache.validate_timestamps=0` with a cache reset on deploy). This is the biggest single win.
 - Keep `autoload.php` lean: load libraries/models only where they are needed.
@@ -860,7 +884,7 @@ What you must do:
 
 ---
 
-## 20. Global function reference
+## 21. Global function reference
 
 Available everywhere after the framework boots (`system/core/Common.php`):
 
@@ -883,7 +907,7 @@ Core objects can be fetched with `Framework::core('config' | 'input' | 'output' 
 
 ---
 
-## 21. Complete example: JSON login API
+## 22. Complete example: JSON login API
 
 **`app/config/routes.php`**
 
@@ -1006,7 +1030,7 @@ class Panel extends BaseController {
 
 ---
 
-## 22. Common pitfalls
+## 23. Common pitfalls
 
 **`Undefined property: Auth::$AuthModel`**
 Models and libraries are attached under their **lower-case** class name. `AuthModel` → `$this->authmodel`. Use an alias (`$this->load->model('AuthModel', 'AuthModel')`) or the lower-case name.
