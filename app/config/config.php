@@ -21,7 +21,7 @@ $config['session_expiration']     = 7200;
 $config['session_time_to_update'] = 300;
 
 // CSRF (Cross-Site Request Forgery) koruması
-$config['csrf_protection']   = true;
+$config['csrf_protection']   = false;
 $config['csrf_token_name']   = 'csrf_token';
 $config['csrf_cookie_name']  = 'csrf_cookie';
 $config['csrf_expire']       = 7200;
