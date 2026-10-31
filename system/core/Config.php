@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 final class Config
 {
     private array $items;
@@ -54,10 +56,31 @@ final class Config
         if (is_cli()) {
             return 'http://localhost/';
         }
-        $host = (string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost');
-        if (!preg_match('/^[A-Za-z0-9.\-:\[\]]+$/', $host)) {   // Host header injection koruması
-            $host = 'localhost';
+        $rawHost = (string) ($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost');
+        if (!preg_match('/^[A-Za-z0-9.\-:\[\]]+$/', $rawHost)) {
+            $rawHost = 'localhost';
         }
-        return (is_https() ? 'https' : 'http') . '://' . $host . base_path() . '/';
+
+        $allowed = (array) ($this->items['allowed_hosts'] ?? []);
+        if ($allowed !== []) {
+            $hostWithoutPort = strtolower((string) preg_replace('/:\d+$/', '', $rawHost));
+            $isAllowed = false;
+            foreach ($allowed as $pattern) {
+                $pattern = strtolower((string) $pattern);
+                if ($pattern === $hostWithoutPort) {
+                    $isAllowed = true;
+                    break;
+                }
+                if (str_starts_with($pattern, '*.') && str_ends_with($hostWithoutPort, substr($pattern, 1))) {
+                    $isAllowed = true;
+                    break;
+                }
+            }
+            if (!$isAllowed) {
+                $rawHost = (string) reset($allowed);
+            }
+        }
+
+        return (is_https() ? 'https' : 'http') . '://' . $rawHost . base_path() . '/';
     }
 }

@@ -1,9 +1,12 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 class Session
 {
     private const FLASH = '__flash';
+    private const INTERNAL_KEYS = [self::FLASH => true, '__last_activity' => true, '__last_regenerate' => true];
 
     public function __construct(array $params = [])
     {
@@ -28,6 +31,23 @@ class Session
 
         $_SESSION ??= [];
 
+        $now = time();
+        if (isset($_SESSION['__last_activity']) && $lifetime > 0 && ($now - (int) $_SESSION['__last_activity']) > $lifetime) {
+            $this->destroy();
+            $_SESSION = [];
+        }
+        $_SESSION['__last_activity'] = $now;
+
+        $timeToUpdate = (int) $config->item('session_time_to_update', 300);
+        if ($timeToUpdate > 0 && session_status() === PHP_SESSION_ACTIVE) {
+            if (!isset($_SESSION['__last_regenerate'])) {
+                $_SESSION['__last_regenerate'] = $now;
+            } elseif (($now - (int) $_SESSION['__last_regenerate']) > $timeToUpdate) {
+                $this->regenerate(true);
+                $_SESSION['__last_regenerate'] = $now;
+            }
+        }
+
         $flash = $_SESSION[self::FLASH] ?? ['new' => [], 'old' => []];
         $_SESSION[self::FLASH] = ['new' => [], 'old' => $flash['new'] ?? []];
     }
@@ -42,7 +62,7 @@ class Session
     public function userdata(?string $key = null, mixed $default = null): mixed
     {
         if ($key === null) {
-            return array_diff_key($_SESSION, [self::FLASH => true]);
+            return array_diff_key($_SESSION, self::INTERNAL_KEYS);
         }
         return $_SESSION[$key] ?? $default;
     }

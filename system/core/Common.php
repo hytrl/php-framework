@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 function get_instance(): ?BaseController
 {
     return BaseController::instance();
@@ -28,8 +30,26 @@ function is_cli(): bool
 
 function is_https(): bool
 {
-    return (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
-        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+    if ((!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443) {
+        return true;
+    }
+
+    $config = Framework::peek('config');
+    if ($config !== null) {
+        $proxies = (array) $config->item('proxy_ips', []);
+        $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+        if ($proxies !== [] && in_array($ip, $proxies, true)) {
+            if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') {
+                return true;
+            }
+            if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')) === 'on') {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 function base_path(): string
@@ -46,7 +66,28 @@ function html_escape(mixed $value): mixed
     if (is_array($value)) {
         return array_map('html_escape', $value);
     }
+    if ($value === null) {
+        return '';
+    }
+    if (is_object($value) && !method_exists($value, '__toString')) {
+        return '';
+    }
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function csrf_token(): string
+{
+    return Framework::core('security')->getCsrfHash();
+}
+
+function csrf_token_name(): string
+{
+    return Framework::core('security')->getCsrfTokenName();
+}
+
+function csrf_field(): string
+{
+    return Framework::core('security')->getCsrfField();
 }
 
 function show_404(string $message = 'The page you requested was not found.'): never
@@ -79,6 +120,15 @@ function log_message(string $level, string $message): void
         return;
     }
 
+    $logPath = APPPATH . 'logs/log-' . date('Y-m-d') . '.php';
+    $isNew   = !is_file($logPath);
+
     $line = sprintf("[%s] %s: %s\n", date('Y-m-d H:i:s'), strtoupper($level), $message);
-    @file_put_contents(APPPATH . 'logs/log-' . date('Y-m-d') . '.log', $line, FILE_APPEND | LOCK_EX);
+
+    if ($isNew) {
+        $header = "<?php defined('BASEPATH') or exit('No direct script access allowed'); ?>\n\n";
+        @file_put_contents($logPath, $header . $line, FILE_APPEND | LOCK_EX);
+    } else {
+        @file_put_contents($logPath, $line, FILE_APPEND | LOCK_EX);
+    }
 }

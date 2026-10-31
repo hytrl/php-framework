@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 #[\AllowDynamicProperties]
 abstract class BaseController
 {
@@ -10,15 +12,17 @@ abstract class BaseController
     public Input $input;
     public Output $output;
     public Config $config;
+    public Security $security;
 
     public function __construct()
     {
         self::$instance = $this;
 
-        $this->config = Framework::core('config');
-        $this->input  = Framework::core('input');
-        $this->output = Framework::core('output');
-        $this->load   = new Loader();
+        $this->config   = Framework::core('config');
+        $this->input    = Framework::core('input');
+        $this->output   = Framework::core('output');
+        $this->security = Framework::core('security');
+        $this->load     = new Loader();
 
         $this->load->autoload();
     }

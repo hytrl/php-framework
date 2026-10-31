@@ -1,16 +1,19 @@
 <?php
+declare(strict_types=1);
+
+defined('BASEPATH') or exit('No direct script access allowed');
 
 require_once BASEPATH . 'core/Common.php';
 require_once BASEPATH . 'core/Config.php';
 require_once BASEPATH . 'core/Hooks.php';
 require_once BASEPATH . 'core/Input.php';
 require_once BASEPATH . 'core/Output.php';
+require_once BASEPATH . 'core/Security.php';
 require_once BASEPATH . 'core/Router.php';
 require_once BASEPATH . 'core/Loader.php';
 require_once BASEPATH . 'core/BaseController.php';
 require_once BASEPATH . 'core/BaseModel.php';
 require_once BASEPATH . 'database/DB.php';
-
 
 final class Framework
 {
@@ -35,21 +38,26 @@ final class Framework
 
         ob_start();
 
-        $config = new Config();
+        $config   = new Config();
         date_default_timezone_set((string) $config->item('timezone', 'UTC'));
 
-        $hooks  = new Hooks();
-        $input  = new Input($config);
-        $output = new Output($config);
-        $router = new Router();
+        $hooks    = new Hooks();
+        $input    = new Input($config);
+        $output   = new Output($config);
+        $security = new Security($config, $input);
+        $router   = new Router();
 
-        self::$core = compact('config', 'hooks', 'input', 'output', 'router');
+        self::$core = compact('config', 'hooks', 'input', 'output', 'security', 'router');
 
         $hooks->call('pre_system');
 
         $target = $router->resolve($input->method());
         if ($target === null) {
             show_404();
+        }
+
+        if (!$security->verifyCsrf($router->uri_string())) {
+            self::fail(403, '403 Forbidden', 'The action you requested is not allowed.');
         }
 
         $hooks->call('pre_controller');
@@ -66,7 +74,8 @@ final class Framework
         $ref = new ReflectionMethod($class, $method);
         $argc = count($target['args']);
         if (
-            !$ref->isPublic() || $ref->isStatic() || $ref->isAbstract() || $ref->isConstructor()
+            !$ref->isPublic() || $ref->isStatic() || $ref->isAbstract()
+            || $ref->isConstructor() || $ref->isDestructor() || str_starts_with($method, '__')
             || $ref->getDeclaringClass()->getName() === BaseController::class
             || $argc < $ref->getNumberOfRequiredParameters()
             || ($argc > $ref->getNumberOfParameters() && !$ref->isVariadic())
@@ -105,7 +114,6 @@ final class Framework
         }
 
         if (ENVIRONMENT !== 'development') {
-
             log_message('error', "PHP [{$severity}] {$message} in {$file}:{$line}");
             return true;
         }

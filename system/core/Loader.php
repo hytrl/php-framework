@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 final class Loader
 {
-    private const RESERVED = ['load', 'input', 'output', 'config', 'db'];
+    private const RESERVED = ['load', 'input', 'output', 'config', 'db', 'security'];
 
     private array $vars = [];
     private array $libraries = [];
@@ -43,7 +45,7 @@ final class Loader
     public function view(string $view, array $data = [], bool $return = false): string|static
     {
         $this->assertPath($view);
-        $name = ltrim($view, '/');
+        $name = ltrim(str_replace('\\', '/', $view), '/');
         $file = APPPATH . 'views/' . $name . (str_ends_with($name, '.php') ? '' : '.php');
 
         if (!is_file($file)) {
@@ -61,7 +63,6 @@ final class Loader
 
     private function render(string $file, array $data): string
     {
-
         $renderer = function (string $__file, array $__data): string {
             extract($__data, EXTR_SKIP);
             ob_start();
@@ -218,7 +219,8 @@ final class Loader
 
     private function assertPath(string $path): void
     {
-        if (str_contains($path, "\0") || preg_match('#(^|/)\.\.(/|$)#', $path)) {
+        $normalized = str_replace('\\', '/', $path);
+        if (str_contains($normalized, "\0") || preg_match('#(^|/)\.\.(/|$)#', $normalized)) {
             throw new InvalidArgumentException('Invalid path.');
         }
     }

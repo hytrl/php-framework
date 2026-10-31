@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 final class Input
 {
     private ?string $rawBody = null;
@@ -84,9 +86,14 @@ final class Input
 
         $proxies = (array) $this->config->item('proxy_ips', []);
         if ($proxies !== [] && in_array($ip, $proxies, true) && !empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $candidate = trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
-            if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
-                $ip = $candidate;
+            $parts = array_map('trim', explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']));
+            for ($i = count($parts) - 1; $i >= 0; $i--) {
+                $candidate = $parts[$i];
+                if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
+                    if (!in_array($candidate, $proxies, true)) {
+                        return $candidate;
+                    }
+                }
             }
         }
 
@@ -112,7 +119,12 @@ final class Input
     private function clean(mixed $value): mixed
     {
         if (is_array($value)) {
-            return array_map([$this, 'clean'], $value);
+            $cleaned = [];
+            foreach ($value as $k => $v) {
+                $cleanKey = is_string($k) ? str_replace("\0", '', $k) : $k;
+                $cleaned[$cleanKey] = $this->clean($v);
+            }
+            return $cleaned;
         }
         return is_string($value) ? str_replace("\0", '', $value) : $value;
     }

@@ -3,6 +3,9 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Prevent direct access to app and system folders
+    RewriteRule ^(app|system) - [F,L]
+
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [L,QSA]
@@ -12,5 +15,9 @@ Options -Indexes
 </IfModule>
 
 <FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "(\.(bak|config|sql|ini|log|sh|inc|swp|dist|env)|~)$">
     Require all denied
 </FilesMatch>

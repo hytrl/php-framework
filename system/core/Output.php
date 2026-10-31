@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 final class Output
 {
     private int $status = 200;
@@ -13,6 +15,18 @@ final class Output
     {
         $this->charset = (string) $config->item('charset', 'UTF-8');
         $this->set_content_type('text/html');
+
+        $securityHeaders = (array) $config->item('security_headers', [
+            'X-Content-Type-Options'            => 'nosniff',
+            'X-Frame-Options'                   => 'SAMEORIGIN',
+            'Referrer-Policy'                   => 'strict-origin-when-cross-origin',
+            'X-Permitted-Cross-Domain-Policies' => 'none',
+        ]);
+        foreach ($securityHeaders as $name => $val) {
+            if ($val !== '' && $val !== null) {
+                $this->set_header((string) $name, (string) $val);
+            }
+        }
     }
 
     public function set_status_header(int $code): static
@@ -23,8 +37,8 @@ final class Output
 
     public function set_header(string $name, string $value): static
     {
-        $name  = str_replace(["\r", "\n", ':'], '', $name);
-        $value = str_replace(["\r", "\n"], '', $value);
+        $name  = str_replace(["\r", "\n", "\0", ':'], '', $name);
+        $value = str_replace(["\r", "\n", "\0"], '', $value);
         $this->headers[strtolower($name)] = $name . ': ' . $value;
         return $this;
     }

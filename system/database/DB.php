@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 class DatabaseException extends RuntimeException
 {
 }
@@ -151,7 +153,8 @@ final class DB
     public function escape(mixed $value): string
     {
         return match (true) {
-            is_int($value) || is_float($value) => (string) $value,
+            is_int($value)                     => (string) $value,
+            is_float($value)                   => (is_nan($value) || is_infinite($value)) ? 'NULL' : (string) $value,
             is_bool($value)                    => $value ? '1' : '0',
             $value === null                    => 'NULL',
             default                            => (string) $this->pdo()->quote((string) $value),

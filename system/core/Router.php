@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 final class Router
 {
     private const RESERVED = ['default_controller'];
@@ -108,6 +110,8 @@ final class Router
         if (str_contains($path, "\0")) {
             return null;
         }
+
+        $path = str_replace('\\', '/', $path);
 
         $parts = array_values(array_filter(explode('/', $path), static fn ($s) => $s !== ''));
         foreach ($parts as $p) {

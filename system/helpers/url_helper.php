@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 if (!function_exists('base_url')) {
     function base_url(string $uri = ''): string
     {
@@ -30,13 +32,32 @@ if (!function_exists('uri_segment')) {
 }
 
 if (!function_exists('redirect')) {
-    function redirect(string $uri = '', int $code = 302): never
+    function redirect(string $uri = '', int $code = 302, bool $allowExternal = false): never
     {
-        $url = preg_match('#^https?://#i', $uri) ? $uri : site_url($uri);
+        $uri = str_replace(["\r", "\n", "\0"], '', trim($uri));
+
+        // Disallow dangerous protocol-relative URLs
+        if (str_starts_with($uri, '//') || str_starts_with($uri, '\\\\') || str_starts_with($uri, '/\\')) {
+            $uri = '/' . ltrim($uri, '/\\');
+        }
+
+        if (preg_match('#^https?://#i', $uri)) {
+            if (!$allowExternal) {
+                $baseHost   = parse_url(base_url(), PHP_URL_HOST);
+                $targetHost = parse_url($uri, PHP_URL_HOST);
+                if (strcasecmp((string) $baseHost, (string) $targetHost) !== 0) {
+                    $uri = base_url();
+                }
+            }
+            $url = $uri;
+        } else {
+            $url = site_url($uri);
+        }
+
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
-        header('Location: ' . str_replace(["\r", "\n"], '', $url), true, $code);
+        header('Location: ' . $url, true, $code);
         exit;
     }
 }

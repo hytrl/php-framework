@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+defined('BASEPATH') or exit('No direct script access allowed');
+
 class Validation
 {
     private array $rules = [];
@@ -119,7 +121,7 @@ class Validation
             'max_length'    => mb_strlen($s) <= (int) $param,
             'exact_length'  => mb_strlen($s) === (int) $param,
             'valid_email'   => filter_var($s, FILTER_VALIDATE_EMAIL) !== false,
-            'valid_url'     => filter_var($s, FILTER_VALIDATE_URL) !== false,
+            'valid_url'     => filter_var($s, FILTER_VALIDATE_URL) !== false && in_array(strtolower((string) parse_url($s, PHP_URL_SCHEME)), ['http', 'https'], true),
             'valid_ip'      => filter_var($s, FILTER_VALIDATE_IP) !== false,
             'numeric'       => is_numeric($s),
             'integer'       => filter_var($s, FILTER_VALIDATE_INT) !== false,
@@ -127,7 +129,7 @@ class Validation
             'alpha'         => preg_match('/^\p{L}+$/u', $s) === 1,
             'alpha_numeric' => preg_match('/^[\p{L}\p{N}]+$/u', $s) === 1,
             'matches'       => $s === (string) ($data[(string) $param] ?? ''),
-            'regex_match'   => preg_match((string) $param, $s) === 1,
+            'regex_match'   => (bool) @preg_match((string) $param, $s),
             'in_list'       => in_array($s, explode(',', (string) $param), true),
             'greater_than'  => is_numeric($s) && (float) $s > (float) $param,
             'less_than'     => is_numeric($s) && (float) $s < (float) $param,
